@@ -1,4 +1,4 @@
-import defmod, revdict, check_output, score
+import defmod, dev_revdict as revdict, check_output, score
 
 if __name__ == "__main__":
     import argparse

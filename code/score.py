@@ -16,7 +16,7 @@ handler.setFormatter(
 logger.addHandler(handler)
 
 os.environ["MOVERSCORE_MODEL"] = "distilbert-base-multilingual-cased"
-import moverscore_v2 as mv_sc
+#import moverscore_v2 as mv_sc
 
 from nltk.translate.bleu_score import sentence_bleu
 from nltk.translate.bleu_score import SmoothingFunction
@@ -72,15 +72,15 @@ def mover_corpus_score(sys_stream, ref_streams, trace=0):
         hypo, *refs = lines
         idf_dict_hyp = collections.defaultdict(lambda: 1.0)
         idf_dict_ref = collections.defaultdict(lambda: 1.0)
-        corpus_score += mv_sc.word_mover_score(
-            refs,
-            [hypo],
-            idf_dict_ref,
-            idf_dict_hyp,
-            stop_words=[],
-            n_gram=1,
-            remove_subwords=False,
-        )[0]
+        #corpus_score += mv_sc.word_mover_score(
+        #    refs,
+        #    [hypo],
+        #    idf_dict_ref,
+        #    idf_dict_hyp,
+        #    stop_words=[],
+        #    n_gram=1,
+        #    remove_subwords=False,
+        #)[0]
         pbar.update()
     pbar.close()
     corpus_score /= len(sys_stream)
