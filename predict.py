@@ -1,21 +1,11 @@
 import argparse
 import json
-import os, random
+import os
 from collections import Counter
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from keras.models import Sequential
-from keras.layers import Embedding, Bidirectional, LSTM, Dense
-from keras.regularizers import l2
-
-#from gloss_word2 import get_vocabulary_and_data
-
 import numpy as np
-from keras import backend as K
-from keras import metrics
-from keras.callbacks import History
 
 # default args
 args = argparse.ArgumentParser(description='Program description.')
@@ -108,20 +98,16 @@ def pad_sequences(batch_x, pad_value):
 def main():
     vocab, test_data, ids = get_vocabulary_and_data(args.test)
     vocab_train, train_data, train_ids = get_vocabulary_and_data(args.train)
-    # doesn't cover padding
+    # doesn't cover padding yet
     input_data = [vectorize_sequence(seq, vocab_train) for seq in test_data]
-    #print(test_data)
     model = keras.models.load_model(args.load)
-    #print("batch gen")
-    #input_batch = batch_generator(test_data[:1], vocab_train, batch_size=25)
-    #print("dealing done")
+    #input_batch = batch_generator(test_data[:1], vocab_train, batch_size=1)
     #predictions = model.predict(input_batch)
-    #print(predictions)
     entries = []
-    for label, data in zip(ids, input_data):
-        print(label)
+    for identifier, data in zip(ids, input_data):
+        print(identifier)
         entries.append(
-            {"id": label, args.embedding_type: model.predict([data]).tolist()[0]}
+            {"id": identifier, args.embedding_type: model.predict([data]).tolist()[0]}
         )
     with open(args.outfile, "w") as ostr:
         json.dump(entries, ostr)
