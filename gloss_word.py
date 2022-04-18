@@ -39,6 +39,7 @@ args.add_argument('-hs','--hidden-size', default=256, type=int, help='Hidden lay
 args.add_argument('-T','--train', type=str, help='Train file', required=True)
 args.add_argument('-t','--test', type=str, help='Test or Dev file', required=True)
 args.add_argument('-b','--batch-size', default=25, type=int, help='Batch Size')
+args.add_argument('-s','--save', type=str, help='Name of save file', default='keras_model')
 # args.add_argument('-sp','--salt-pepper', default=False, type=boolean, help='Salt and pepper data?')
 args = args.parse_args()
 
@@ -232,6 +233,9 @@ def main():
     
     # Output summary of model layers
     classifier.summary()
+
+    # Save Model
+    classifier.save(args.save)
         
 if __name__ == '__main__':
     main()
