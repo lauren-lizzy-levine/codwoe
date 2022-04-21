@@ -15,9 +15,7 @@ from keras import backend as K
 from keras import metrics
 from keras.callbacks import History
 
-
-
-
+# HI lauren
 '''
 Relevant data:
 data/en.train.json
@@ -30,7 +28,7 @@ data/en.trial.complete.json
 args = argparse.ArgumentParser(description='Program description.')
 args.add_argument('-d','--device', default='cpu', help='Either "cpu" or "cuda"')
 args.add_argument('-e','--epochs', default=10, type=int, help='Number of epochs')
-args.add_argument('-lr','--learning-rate', default=0.01, type=float, help='Learning rate')
+args.add_argument('-lr','--learning-rate', default=0.001, type=float, help='Learning rate')
 args.add_argument('-do','--dropout', default=0.3, type=float, help='Dropout rate')
 args.add_argument('-ea','--early-stopping', default=-1, type=int, help='Early stopping criteria')
 args.add_argument('-em','--embedding-size', default=300, type=int, help='Embedding dimension size')
@@ -39,7 +37,7 @@ args.add_argument('-hs','--hidden-size', default=256, type=int, help='Hidden lay
 args.add_argument('-T','--train', type=str, help='Train file', required=True)
 args.add_argument('-t','--test', type=str, help='Test or Dev file', required=True)
 args.add_argument('-b','--batch-size', default=25, type=int, help='Batch Size')
-args.add_argument('-s','--save', type=str, help='Name of save file', default='keras_model')
+args.add_argument('-s','--save', type=str, help='Name of save file', default='keras_mode')
 # args.add_argument('-sp','--salt-pepper', default=False, type=boolean, help='Salt and pepper data?')
 args = args.parse_args()
 
@@ -160,8 +158,7 @@ def transform_text_sequence(seq):
     #for i in range(len(seq)):
     #    seq[i] = seq[i].lower()
     return seq
-
-
+    
 def main():
        
     vocab, labels, train_data, train_labels = get_vocabulary_and_data(train_file)
@@ -184,11 +181,10 @@ def main():
     print("\n")
     
     # Using a pre trained embedding has given poor results so far. Definitely seems intuitive to use one though
-    
     classifier = keras.Sequential(
         [
             layers.Embedding(input_dim=len(vocab), output_dim=args.embedding_size, weights=[load_pretrained_embeddings('glove.6B/glove.6B.300d.txt', vocab)], trainable=True, name="GloVe_Embedding"),
-            layers.LSTM(args.hidden_size, return_sequences=True, name="LSTM_1"),
+            layers.Bidirectional(LSTM(args.hidden_size, return_sequences=True, name="LSTM_1")),
             layers.Dropout(args.dropout),
             layers.LSTM(args.hidden_size, return_sequences=False, name="LSTM_2"),
             layers.Dropout(args.dropout),
@@ -198,7 +194,7 @@ def main():
 
     # ------------------------------------------------------------------------------------------------
     # We are going to try a decaying learning rate
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(initial_learning_rate= args.learning_rate,decay_steps=1000, decay_rate=0.8)
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(initial_learning_rate= args.learning_rate,decay_steps=10000, decay_rate=0.9)
     
     # Loss is cosine similarity (want to approach -1)
     classifier.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule), loss=tf.keras.losses.CosineSimilarity(axis=-1,name='cosine_similarity'), metrics=[metrics.mean_squared_error, 'accuracy'])
@@ -233,7 +229,7 @@ def main():
     
     # Output summary of model layers
     classifier.summary()
-
+    
     # Save Model
     classifier.save(args.save)
         
