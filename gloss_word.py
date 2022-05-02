@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from keras.models import Sequential
-from keras.layers import Embedding, Bidirectional, LSTM, Dense
+from keras.layers import Embedding, Bidirectional, LSTM, Dense, GaussianNoise
 from keras.regularizers import l2
 
 import numpy as np
@@ -15,13 +15,18 @@ from keras import backend as K
 from keras import metrics
 from keras.callbacks import History
 
-# HI lauren
+# Note difference. Model is now in fuction. Made training easier. Also evaluation.out is append opened so delete localy as needed but dont forget. Added code to get started on word/noun/pos interpretation
 '''
 Relevant data:
 data/en.train.json
 data/en.dev.json
-data/en.test.revdict.json
 data/en.trial.complete.json
+data/en.test.revdict.json
+
+Optimized hyper parameters (strafied based on embedding)
+SGNS:    -e=1  -lr=0.001  -do=0.1  -hs=20  -b=5   -gn=0.005  LOSS:0.31288  MSE:0.97931  ACC:0.04471
+CHAR:    -e=2  -lr=0.001  -do=0.1  -hs=5   -b=20  -gn=0.005  LOSS:0.79997  MSE:0.36708  ACC:0.50369
+ELECTRA: -e=1  -lr=0.01   -do=0.2  -hs=50  -b=20  -gn=0.005  LOSS:0.84549  MSE:1.33066  ACC:0.56502
 '''
 
 # default args
@@ -33,12 +38,12 @@ args.add_argument('-do','--dropout', default=0.3, type=float, help='Dropout rate
 args.add_argument('-ea','--early-stopping', default=-1, type=int, help='Early stopping criteria')
 args.add_argument('-em','--embedding-size', default=300, type=int, help='Embedding dimension size')
 args.add_argument('-et','--embedding-type', default='sgns', type=str, help='Embedding type used: char, sgns, or electra')
-args.add_argument('-hs','--hidden-size', default=256, type=int, help='Hidden layer size')
+args.add_argument('-hs','--hidden-size', default=256, type=float, help='Hidden layer size')
 args.add_argument('-T','--train', type=str, help='Train file', required=True)
 args.add_argument('-t','--test', type=str, help='Test or Dev file', required=True)
-args.add_argument('-b','--batch-size', default=25, type=int, help='Batch Size')
+args.add_argument('-b','--batch-size', default=25, type=float, help='Batch Size')
 args.add_argument('-s','--save', type=str, help='Name of save file', default='keras_mode')
-# args.add_argument('-sp','--salt-pepper', default=False, type=boolean, help='Salt and pepper data?')
+args.add_argument('-gn','--gaussian-noise', default=0,type=float, help='STDDEV for gaussian noise. None or 0 is default')
 args = args.parse_args()
 
 train_file = args.train
@@ -58,6 +63,13 @@ def get_vocabulary_and_data(data_file, max_vocab_size=None):
     vocab = Counter()
     data = []
     labels = []
+    
+    # Be able to pull additional data from records if using the Trail data set
+    #if (data_file[len(data_file) -13:] == 'complete.json'):
+    #
+    #else:
+    # ...
+    
     with open(data_file, 'r', encoding='utf8') as f:
         dataset = json.load(f)
         for line in dataset:
@@ -158,24 +170,17 @@ def transform_text_sequence(seq):
     #for i in range(len(seq)):
     #    seq[i] = seq[i].lower()
     return seq
-    
-def main():
-       
-    vocab, labels, train_data, train_labels = get_vocabulary_and_data(train_file)
-    _, _, dev_data, dev_labels = get_vocabulary_and_data(dev_file)
 
-    describe_data(train_data, train_labels, labels,
-                  batch_generator(train_data, train_labels, vocab, labels, args.batch_size))
-
-    # Implement your model here! ----------------------------------------------------------------------
-    # Use the variables args.batch_size, args.hidden_size, args.embedding_size, args.dropout, args.epochs
-    # You can input these as command line parameters.
+def model(train_data, train_labels,dev_data, dev_labels, vocab, labels, params):
     
     # Print some parameter stats to help orient with data structure
     print("\n")
-    print("Hidden size, -hs: ",args.hidden_size)
-    print("Embedding size, -em: ",args.embedding_size)
-    print("Batch size, -b: ", args.batch_size)
+    print("Hidden size, -hs: ",params.hidden_size)
+    print("Embedding size, -em: ",params.embedding_size)
+    print("Learn rate, -lr: ",params.learning_rate)
+    print("Dropout, -do: ", params.dropout)
+    print("Batch size, -b: ", params.batch_size)
+    print("Gauss, -gn: ", params.gaussian_noise)
     print("Number of labels: ", len(labels))
     print("Vocab size: ",len(vocab))
     print("\n")
@@ -183,56 +188,114 @@ def main():
     # Using a pre trained embedding has given poor results so far. Definitely seems intuitive to use one though
     classifier = keras.Sequential(
         [
-            layers.Embedding(input_dim=len(vocab), output_dim=args.embedding_size, weights=[load_pretrained_embeddings('glove.6B/glove.6B.300d.txt', vocab)], trainable=True, name="GloVe_Embedding"),
-            layers.Bidirectional(LSTM(args.hidden_size, return_sequences=True, name="LSTM_1")),
-            layers.Dropout(args.dropout),
-            layers.LSTM(args.hidden_size, return_sequences=False, name="LSTM_2"),
-            layers.Dropout(args.dropout),
+            layers.Embedding(input_dim=len(vocab), output_dim=params.embedding_size, weights=[load_pretrained_embeddings('glove.6B/glove.6B.300d.txt', vocab)], trainable=True),
+            layers.GaussianNoise(params.gaussian_noise),
+            layers.Bidirectional(LSTM(params.hidden_size, return_sequences=True, name="LSTM_1")),
+            layers.Dropout(params.dropout),
+            layers.LSTM(params.hidden_size, return_sequences=False, name="LSTM_2"),
+            layers.Dropout(params.dropout),
             layers.Dense(256,name="Dense")
         ]
     )
-
-    # ------------------------------------------------------------------------------------------------
+    
     # We are going to try a decaying learning rate
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(initial_learning_rate= args.learning_rate,decay_steps=10000, decay_rate=0.9)
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=
+                params.learning_rate,decay_steps=10000, decay_rate=0.9)
     
     # Loss is cosine similarity (want to approach -1)
-    classifier.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule), loss=tf.keras.losses.CosineSimilarity(axis=-1,name='cosine_similarity'), metrics=[metrics.mean_squared_error, 'accuracy'])
+    classifier.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),
+    loss=tf.keras.losses.CosineSimilarity(axis=-1,name='cosine_similarity'), metrics=[metrics.mean_squared_error, 'accuracy'])
     
     # Loss is mse (want to approach 0)
     #classifier.compile(optimizer=keras.optimizers.Adam(learning_rate=args.learning_rate), loss='mse', metrics=[metrics.mean_squared_error, 'accuracy'])
     
-    
     # For model analysis, open the file "data.txt"
     # We will store the evaluation metrics for each epoch in this file
-    outputFile = open("evaluation.out","w+")
-    outputFile.write("Evaluation Information: \n")
-    outputFile.write("Epoch\tLoss\tMSE\tAcc\tSet \n")
-    outputFile.write("\n")
+    outputFile = open("evaluation.out","a")
+    #outputFile.write("Evaluation Information: \n")
+    #outputFile.write(str("Epoch"+"\t"*2+"lr"+"\t"*2+"do"+"\t"*2+"hs"+"\t"*2+"b"+"\t"*2+"gn"+"\t"*2+"Loss"+"\t"*2+"MSE"+"\t"*2+"Acc"+"\t"*2+"Set"+"\n"))
+    #outputFile.write("\n")
+
 
     for i in range(args.epochs):
         print('Epoch',i+1,'/',args.epochs)
+        
         # Training
         history = History()
-        history = classifier.fit(batch_generator(train_data, train_labels, vocab, labels, batch_size=args.batch_size),
-                                 epochs=1, steps_per_epoch=len(train_data)/args.batch_size)
+        history = classifier.fit(batch_generator(train_data, train_labels, vocab, labels, batch_size=params.batch_size),
+                                 epochs=1, steps_per_epoch=len(train_data)/params.batch_size)
         # Evaluation
         loss, mse, acc = classifier.evaluate(batch_generator(dev_data, dev_labels, vocab, labels),
                                                   steps=len(dev_data))
                                                   
         print('Dev Loss:', loss, 'Dev mse:', mse, 'Dev Acc:', acc)
         
-        toWrite1 = str(i) + "\t" + str(history.history['loss']) + "\t" + str(history.history['mean_squared_error']) + "\t" + str(history.history['accuracy']) + "\t" + 'Train' + "\n"
-        toWrite2 = str(i) + "\t" + str(loss) + "\t" + str(mse) + "\t" + str(acc) + "\t" + 'Dev/Test' + "\n"
+    
+        toWrite1 = '%s\t\t%.3f\t\t%.3f\t\t%f\t%f\t%.3f\t\t%.5f\t%.5f\t\t%.5f  \t %s\n' % (str(i+1), params.learning_rate, params.dropout, params.hidden_size, params.batch_size, params.gaussian_noise, history.history['loss'][0], history.history['mean_squared_error'][0],history.history['accuracy'][0],"Train")
+        toWrite2 = '%s\t\t%.3f\t\t%.3f\t\t%f\t%f\t%.3f\t\t%.5f\t%.5f\t\t%.5f  \t %s\n' % (str(i+1), params.learning_rate, params.dropout, params.hidden_size, params.batch_size, params.gaussian_noise, loss, mse, acc,"Dev/Test")
+    
         outputFile.write(toWrite1)
         outputFile.write(toWrite2)
-    
-    # Output summary of model layers
-    classifier.summary()
-    
+       
     # Save Model
     classifier.save(args.save)
+    
+    return classifier, history
+    
+def main():
+    #with open("data/en.trial.complete.json", 'r', encoding='utf8') as f:
+    #    dataset = json.load(f)
+     #   for line in dataset:
+     #       print(line)
+    
+    vocab, labels, train_data, train_labels = get_vocabulary_and_data(train_file)
+    _, _, dev_data, dev_labels = get_vocabulary_and_data(dev_file)
+
+    describe_data(train_data, train_labels, labels,
+                  batch_generator(train_data, train_labels, vocab, labels, args.batch_size))
+    
+    classifier, history = model(train_data, train_labels,dev_data, dev_labels, vocab, labels, args)
+    
+    # ---------------------------------------------------------------- #
+    #                   Hyper parameter tuning  Phase I                #
+    # -----------------------------------------------------------------#
+    #x = [0.1,0.5,1,2,5,10]
+    #parameter_space = {'lr': [0.001*i for i in x],'do':[0.1*i for i in x],'hs':[100*i for i in x],
+    #    'b':[10*i for i in x],'gn':[0.05*i for i in x]}
+    #print(parameter_space)
+    
+    #random_index = random.randint(0,4)
+    #for i in range (25):
+    #    args.learning_rate = parameter_space['lr'][random.randint(0,4)]
+    #    args.dropout = parameter_space['do'][random.randint(0,4)]
+    #    args.hidden_size = int(parameter_space['hs'][random.randint(0,4)])
+    #    args.batch_size = parameter_space['b'][random.randint(0,4)]
+    #    args.gaussian_noise = parameter_space['gn'][random.randint(0,4)]
+    #    classifier, history = model(train_data, train_labels,dev_data, dev_labels, vocab, labels, args)
         
+    # ---------------------------------------------------------------- #
+    #                   Hyper parameter tuning  Phase II               #
+    # -----------------------------------------------------------------#
+    #x = [1,2,5,10]
+    #y = [1,2,5]
+    #z = [1,2]
+    
+    #parameter_space = {'lr': [0.002*i for i in y],'do':[0,0.1,0.2],'hs':[5*i for i in x],
+    #    'b':[10*i for i in z],'gn':[0.05]}
+    #print(parameter_space)
+    
+    #for a in parameter_space['lr']:
+    #    for b in parameter_space['do']:
+    #        for c in parameter_space['hs']:
+    #            for d in parameter_space['b']:
+    #                args.learning_rate = a
+    #                args.dropout = b
+    #                args.hidden_size = c
+    #                args.batch_size = d
+    #                args.gaussian_noise = 0.005
+    #                classifier, history = model(train_data, train_labels,dev_data, dev_labels, vocab, labels, args)
+   
+   
 if __name__ == '__main__':
     main()
 
