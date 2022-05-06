@@ -6,6 +6,7 @@ import logging
 import os
 import pathlib
 import sys
+import numpy as np
 
 logger = logging.getLogger(pathlib.Path(__file__).name)
 logger.setLevel(logging.DEBUG)
@@ -159,6 +160,36 @@ def rank_cosine(preds, targets):
     ranks = ranks.mean().item()
     return ranks / preds.size(0)
 
+def cos_analysis(cos_list, all_words, all_pos, arch):
+    parts_of_speech = set(all_pos)
+    pos_cats = {}
+    word_list = {}
+    word_list_by_pos = {}
+    for part in parts_of_speech:
+        pos_cats[part] = []
+        word_list_by_pos[part] = {}
+    for cos, word, pos in zip(cos_list, all_words, all_pos):
+        pos_cats[pos].append(cos)
+        word_list[word] = {"cos": cos.item(), "pos": pos}
+        word_list_by_pos[pos][word] = cos.item()
+    pos_cat_avg = {}
+    for part in parts_of_speech:
+        pos_cat_avg[part] = np.mean(pos_cats[part]).item()
+    word_list = dict(sorted(word_list.items(), key=lambda item: item[1]["cos"], reverse=True))
+    for pos in word_list_by_pos:
+        word_list_by_pos[pos] = dict(sorted(word_list_by_pos[pos].items(), key=lambda item: item[1], reverse=True))
+    pos_cat_avg = dict(sorted(pos_cat_avg.items(), key=lambda item: item[1], reverse=True))
+    # Write analysis to output files
+    out_file = arch + "_word_by_cos.json"
+    with open(out_file, "w") as out_f:
+        out_f.write(json.dumps(word_list, indent=4))
+    out_file = arch + "_word_by_cos_within_pos.json"
+    with open(out_file, "w") as out_f:
+        out_f.write(json.dumps(word_list_by_pos, indent=4))
+    out_file = arch + "_pos_avg_cos.json"
+    with open(out_file, "w") as out_f:
+        out_f.write(json.dumps(pos_cat_avg, indent=4))
+    return
 
 def eval_revdict(args, summary):
     # 1. read contents
@@ -184,6 +215,8 @@ def eval_revdict(args, summary):
     ## define accumulators for rank-cosine
     all_preds = collections.defaultdict(list)
     all_refs = collections.defaultdict(list)
+    all_words = []
+    all_pos = []
 
     assert len(submission) == len(reference), "Missing items in submission!"
     ## retrieve vectors
@@ -192,11 +225,12 @@ def eval_revdict(args, summary):
         for arch in vec_archs:
             all_preds[arch].append(sub[arch])
             all_refs[arch].append(ref[arch])
+        all_words.append(ref["word"])
+        all_pos.append(ref["pos"])
 
     torch.autograd.set_grad_enabled(False)
     all_preds = {arch: torch.tensor(all_preds[arch]) for arch in vec_archs}
     all_refs = {arch: torch.tensor(all_refs[arch]) for arch in vec_archs}
-
     # 2. compute scores
     MSE_scores = {
         arch: F.mse_loss(all_preds[arch], all_refs[arch]).item() for arch in vec_archs
@@ -208,6 +242,9 @@ def eval_revdict(args, summary):
     rnk_scores = {
         arch: rank_cosine(all_preds[arch], all_refs[arch]) for arch in vec_archs
     }
+    for arch in vec_archs:
+        cos_list = F.cosine_similarity(all_preds[arch], all_refs[arch])
+        cos_analysis(cos_list, all_words, all_pos, arch)
     # 3. display results
     # logger.debug(f"Submission {args.submission_file}, \n\tMSE: " + \
     #     ", ".join(f"{a}={MSE_scores[a]}" for a in vec_archs) + \
