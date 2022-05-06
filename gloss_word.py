@@ -38,7 +38,7 @@ args.add_argument('-do','--dropout', default=0.3, type=float, help='Dropout rate
 args.add_argument('-ea','--early-stopping', default=-1, type=int, help='Early stopping criteria')
 args.add_argument('-em','--embedding-size', default=300, type=int, help='Embedding dimension size')
 args.add_argument('-et','--embedding-type', default='sgns', type=str, help='Embedding type used: char, sgns, or electra')
-args.add_argument('-hs','--hidden-size', default=256, type=float, help='Hidden layer size')
+args.add_argument('-hs','--hidden-size', default=256, type=int, help='Hidden layer size')
 args.add_argument('-T','--train', type=str, help='Train file', required=True)
 args.add_argument('-t','--test', type=str, help='Test or Dev file', required=True)
 args.add_argument('-b','--batch-size', default=25, type=float, help='Batch Size')
