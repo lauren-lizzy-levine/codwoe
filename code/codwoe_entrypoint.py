@@ -4,7 +4,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="demo script for participants")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command")#, required=True)
     parser_defmod = defmod.get_parser(
         parser=subparsers.add_parser(
             "defmod", help="run a definition modeling baseline"
