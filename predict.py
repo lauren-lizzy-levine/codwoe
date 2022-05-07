@@ -6,6 +6,7 @@ from collections import Counter
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
+from preproc import stem, lemmatize, lower, rem_stop, rem_punc
 
 # default args
 args = argparse.ArgumentParser(description='Program description.')
@@ -14,6 +15,8 @@ args.add_argument('-t','--test', help='Test File')
 args.add_argument('-tr','--train', help='Train File')
 args.add_argument('-et','--embedding-type', default='sgns', type=str, help='Embedding type used: char, sgns, or electra')
 args.add_argument('-o','--outfile', default='revdict_preds.json', type=str, help='Output file for predictions')
+args.add_argument('-pp','--preprocessing', type=str, help='Preprocess the gloss', default='None')
+
 args = args.parse_args()
 
 UNK = '[UNK]'
@@ -63,7 +66,20 @@ def transform_text_sequence(seq):
     '''
     #for i in range(len(seq)):
     #    seq[i] = seq[i].lower()
-    return seq
+    res = seq[1:-1]
+    if 'stem' in args.preprocessing:
+        res = stem(res)
+    if 'lem' in args.preprocessing:
+        res = lemmatize(res)
+    if 'stop' in args.preprocessing:
+        res = rem_stop(res)
+    if 'punc' in args.preprocessing:
+        res = rem_punc(res)
+    if 'lower' in args.preprocessing:
+        res = lower(res)
+    res.insert(0,'<s>')
+    res.append('</s>')
+    return res
 
 def vectorize_sequence(seq, vocab):
     seq = [tok if tok in vocab else UNK for tok in seq]
