@@ -14,6 +14,7 @@ import numpy as np
 from keras import backend as K
 from keras import metrics
 from keras.callbacks import History
+from preproc import stem, lemmatize, lower, rem_stop, rem_punc
 
 # Note difference. Model is now in fuction. Made training easier. Also evaluation.out is append opened so delete localy as needed but dont forget. Added code to get started on word/noun/pos interpretation
 '''
@@ -44,6 +45,8 @@ args.add_argument('-t','--test', type=str, help='Test or Dev file', required=Tru
 args.add_argument('-b','--batch-size', default=25, type=float, help='Batch Size')
 args.add_argument('-s','--save', type=str, help='Name of save file', default='keras_mode')
 args.add_argument('-gn','--gaussian-noise', default=0,type=float, help='STDDEV for gaussian noise. None or 0 is default')
+args.add_argument('-pp','--preprocessing', type=str, help='Preprocess the gloss', default='None')
+## lem, stem, lower, stop, punc
 args = args.parse_args()
 
 train_file = args.train
@@ -169,7 +172,20 @@ def transform_text_sequence(seq):
     '''
     #for i in range(len(seq)):
     #    seq[i] = seq[i].lower()
-    return seq
+    res = seq[1:-1]
+    if 'stem' in args.preprocessing:
+        res = stem(res)
+    if 'lem' in args.preprocessing:
+        res = lemmatize(res)
+    if 'stop' in args.preprocessing:
+        res = rem_stop(res)
+    if 'punc' in args.preprocessing:
+        res = rem_punc(res)
+    if 'lower' in args.preprocessing:
+        res = lower(res)
+    res.insert(0,'<s>')
+    res.append('</s>')
+    return res
 
 def model(train_data, train_labels,dev_data, dev_labels, vocab, labels, params):
     
