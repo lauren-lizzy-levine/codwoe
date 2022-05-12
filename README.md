@@ -1,3 +1,59 @@
+# Repository Notes
+
+This repository contains code used for tackling the reverse dictionary task presented in the CODWOE Shared Task. The full readme for the shared task is listed below this notes section. All python files in the main directory of this repository are added scripts for the reverse dictionary substask. There is also a additional_requirements.txt file with the packages need to run these python scripts. (Please note that data from the shared task must be added to the data directory -- a link to the data is provided in the task description below.)
+
+### Model Training
+
+Use ```gloss_word.py``` to train a model for the reverse dictionary subtask:
+
+```
+usage: gloss_word.py [-h] [-d DEVICE] [-e EPOCHS] [-lr LEARNING_RATE]
+                     [-do DROPOUT] [-ea EARLY_STOPPING] [-em EMBEDDING_SIZE]
+                     [-et EMBEDDING_TYPE] [-hs HIDDEN_SIZE] -T TRAIN -t TEST
+                     [-b BATCH_SIZE] [-s SAVE] [-gn GAUSSIAN_NOISE]
+                     [-pp PREPROCESSING]
+```
+
+Below is an example of how to train a model to predict electra embeddings for English, where the model is saved as ```en_electra_prepross```:
+
+```
+python gloss_word.py -e 1 -lr 0.01 -do 0.2 -et electra -hs 50 \
+-T data/train-data_all/en.train.json -t data/train-data_all/en.dev.json \
+-b 20  -s en_electra_prepross -gn 0.005 -pp ‘lem stop punc lower’
+```
+
+Here are the optimal inputs for each embedding type as a hyperparameter search:
+```
+SGNS:         -e=1  -lr=0.001  -do=0.1  -hs=20  -b=5   -gn=0.005 
+CHAR:         -e=2  -lr=0.001  -do=0.1  -hs=5   -b=20  -gn=0.005
+ELECTRA:      -e=1  -lr=0.01   -do=0.2  -hs=50  -b=20  -gn=0.005
+```
+
+### Prediction
+
+Use ```predict.py``` to predict embeddings fon dev/test data using a pre-trained model:
+
+```
+usage: predict.py [-h] [-l LOAD] [-t TEST] [-tr TRAIN] [-et EMBEDDING_TYPE]
+                  [-o OUTFILE] [-pp PREPROCESSING]
+```
+
+Below is an example of how to use ```predict.py``` to load a saved model called ```en_electra_prepross``` and predict on English test data (predictions are written to an outfile):
+
+```
+python predict.py --load en_electra_prepross --test  data/test-data_all/en.test.revdict.json \
+--train data/train-data_all/en.train.json -et electra -o prepross_electra_revdict_preds.json
+```
+
+### Evaluation
+
+Use the evaluation script provided by the shared task to evaluate the predictions on the test data made by ```predict.py```, where ```prepross_electra_revdict_preds.json``` is the file where the predictions:
+
+```
+python code/codwoe_entrypoint.py score prepross_electra_revdict_preds.json \
+--reference_files_dir data/reference_data/
+```
+
 # Comparing Dictionaries and Word Embeddings
 
 This is the repository for the SemEval 2022 Shared Task #1: Comparing
