@@ -1,0 +1,4 @@
+(glove)
+MSE_fr_electra:1.1988558769226074
+cos_fr_electra:0.8602156639099121
+rnk_fr_electra:0.48492297929586825
