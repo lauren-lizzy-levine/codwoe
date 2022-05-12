@@ -47,7 +47,7 @@ python predict.py --load en_electra_prepross --test  data/test-data_all/en.test.
 
 ### Evaluation
 
-Use the evaluation script provided by the shared task to evaluate the predictions on the test data made by ```predict.py```, where ```prepross_electra_revdict_preds.json``` is the file where the predictions:
+Use the evaluation script provided by the shared task to evaluate the predictions on the test data made by ```predict.py```, where ```prepross_electra_revdict_preds.json``` is the file where the predictions are saved:
 
 ```
 python code/codwoe_entrypoint.py score prepross_electra_revdict_preds.json \
