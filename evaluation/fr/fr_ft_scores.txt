@@ -1,0 +1,4 @@
+(fasttext)
+MSE_fr_electra:1.1591054201126099
+cos_fr_electra:0.8593270182609558
+rnk_fr_electra:0.4881237462623832
